@@ -1,0 +1,503 @@
+{
+  "name": "PAP Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": "manual"
+      },
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [100, 100]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "baseId": "{{$env.AIRTABLE_BASE_ID}}",
+        "table": "Pilot Sites",
+        "options": {
+          "fields": [
+            "Organization Name",
+            "Organization Type",
+            "Contact Information",
+            "Geographic Location",
+            "Current Technology Stack",
+            "Pilot Readiness Score",
+            "Status"
+          ]
+        }
+      },
+      "name": "Get Pilot Sites",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [300, 100],
+      "credentials": {
+        "airtableApi": {
+          "id": "{{$env.AIRTABLE_CREDENTIALS_ID}}",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "return items.map(item => {\n  const scoringCriteria = {\n    organizationType: item.json['Organization Type'] === 'University Health System' ? 10 : 8,\n    techReadiness: item.json['Pilot Readiness Score'] || 5,\n    geographicDiversity: item.json['Geographic Location'] ? 5 : 3,\n    clinicalVolume: item.json['Current Technology Stack'] ? 5 : 3\n  };\n  item.json.totalScore = Object.values(scoringCriteria).reduce((a, b) => a + b, 0);\n  return item;\n});"
+      },
+      "name": "Score Sites",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [500, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "{{$node['Score Sites'].json.totalScore}}",
+              "operation": "larger",
+              "value2": 20
+            }
+          ]
+        }
+      },
+      "name": "Filter High Scores",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 100]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "send",
+        "to": "{{$node['Get Pilot Sites'].json['Contact Information']}}",
+        "subject": "PAP Pilot Program Invitation",
+        "message": "Dear {{$node['Get Pilot Sites'].json['Organization Name']}},\n\nWe are excited to invite you to join our Pipeline Acceleration Platform pilot program. Based on your {{$node['Get Pilot Sites'].json['Organization Type']}}, we believe you are a great fit...\n\nBest regards,\nPAP Team",
+        "options": {
+          "followUp": {
+            "enabled": true,
+            "delay": 3,
+            "message": "Following up on our previous email about the PAP pilot program..."
+          }
+        }
+      },
+      "name": "Send Outreach Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [900, 100],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{$env.GMAIL_CREDENTIALS_ID}}",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "{{$env.ADVISORY_WEBHOOK_URL}}",
+        "responseFormat": "json",
+        "options": {}
+      },
+      "name": "Advisory Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "try {\n  const expertMapping = {\n    'business_modeling': 'business_analyst_team',\n    'test_design': 'clinical_team',\n    'implementation': 'tech_implementation_team',\n    'regulatory': 'compliance_team'\n  };\n  items[0].json.assignedExpert = expertMapping[items[0].json.requestType] || 'general_team';\n  return items;\n} catch (error) {\n  return [{ json: { error: 'Failed to assign expert: ' + error.message } }];\n}"
+      },
+      "name": "Assign Expert",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [300, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "postMessage",
+        "channel": "{{$node['Assign Expert'].json.assignedExpert}}",
+        "text": "New advisory request: {{$node['Advisory Request Webhook'].json.requestType}} for {{$node['Advisory Request Webhook'].json.organization}}"
+      },
+      "name": "Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [500, 400],
+      "credentials": {
+        "slackOAuth2": {
+          "id": "{{$env.SLACK_CREDENTIALS_ID}}",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": "{{$env.GOOGLE_CALENDAR_ID}}",
+        "startTime": "{{$node['Advisory Request Webhook'].json.preferred_time || new Date().toISOString()}}",
+        "attendees": "{{$node['Advisory Request Webhook'].json.contact_email}}",
+        "title": "PAP Advisory Session",
+        "description": "Advisory session for {{$node['Advisory Request Webhook'].json.requestType}}",
+        "options": {
+          "sendNotifications": true
+        }
+      },
+      "name": "Schedule Session",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [700, 400],
+      "credentials": {
+        "googleCalendarOAuth2": {
+          "id": "{{$env.GOOGLE_CALENDAR_CREDENTIALS_ID}}",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "hours": [0],
+          "minutes": [0],
+          "days": [0, 1, 2, 3, 4, 5, 6]
+        }
+      },
+      "name": "Daily KPI Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 700]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "url": "{{$env.KPI_DATA_ENDPOINT}}",
+        "responseFormat": "json",
+        "options": {
+          "retryOnFail": true,
+          "maxRetries": 3
+        }
+      },
+      "name": "Collect KPI Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [300, 700]
+    },
+    {
+      "parameters": {
+        "functionCode": "try {\n  items[0].json.alert = false;\n  if (items[0].json.turnaroundTime > items[0].json.thresholdTime) {\n    items[0].json.alert = true;\n    items[0].json.message = 'Turnaround time exceeded threshold';\n  } else if (items[0].json.accuracyScore < items[0].json.minAccuracy) {\n    items[0].json.alert = true;\n    items[0].json.message = 'Accuracy below minimum threshold';\n  }\n  return items;\n} catch (error) {\n  return [{ json: { error: 'Performance monitoring failed: ' + error.message } }];\n}"
+      },
+      "name": "Monitor Performance",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [500, 700]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "baseId": "{{$env.AIRTABLE_BASE_ID}}",
+        "table": "KPI Metrics",
+        "columns": {
+          "values": {
+            "Workflow Efficiency": "{{$node['Collect KPI Data'].json.workflow_efficiency}}",
+            "Turnaround Time": "{{$node['Collect KPI Data'].json.turnaroundTime}}",
+            "Accuracy Score": "{{$node['Collect KPI Data'].json.accuracyScore}}",
+            "Adoption Metrics": "{{$node['Collect KPI Data'].json.adoption_metrics}}",
+            "Alert": "{{$node['Monitor Performance'].json.alert}}",
+            "Alert Message": "{{$node['Monitor Performance'].json.message}}"
+          }
+        }
+      },
+      "name": "Store KPI Data",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [700, 700],
+      "credentials": {
+        "airtableApi": {
+          "id": "{{$env.AIRTABLE_CREDENTIALS_ID}}",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "{{$node['Monitor Performance'].json.alert}}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Check Alerts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 700]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "postMessage",
+        "channel": "alerts_channel",
+        "text": "KPI Alert: {{$node['Monitor Performance'].json.message}}"
+      },
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1100, 600],
+      "credentials": {
+        "slackOAuth2": {
+          "id": "{{$env.SLACK_CREDENTIALS_ID}}",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "hours": [0],
+          "minutes": [0],
+          "days": [0]
+        }
+      },
+      "name": "Weekly Research Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 1000]
+    },
+    {
+      "parameters": {
+        "functionCode": "try {\n  items[0].json.anonymizedData = items[0].json.data.map(record => {\n    delete record.sensitive_info;\n    delete record.patient_identifiers;\n    return record;\n  });\n  return items;\n} catch (error) {\n  return [{ json: { error: 'Data anonymization failed: ' + error.message } }];\n}"
+      },
+      "name": "Anonymize Research Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [300, 1000]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "{{$env.DOCUMENT_GENERATION_API}}",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "params": {
+          "template": "manuscript",
+          "data": "{{$node['Anonymize Research Data'].json.anonymizedData}}"
+        }
+      },
+      "name": "Generate Manuscript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [500, 1000]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "postMessage",
+        "channel": "research_channel",
+        "text": "New research manuscript generated: {{$node['Generate Manuscript'].json.title}}"
+      },
+      "name": "Share Research Results",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [700, 1000],
+      "credentials": {
+        "slackOAuth2": {
+          "id": "{{$env.SLACK_CREDENTIALS_ID}}",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "send",
+        "to": "{{$env.NEWSLETTER_SUBSCRIBERS}}",
+        "subject": "PAP Research Update",
+        "message": "New research findings from the PAP: {{$node['Generate Manuscript'].json.title}}"
+      },
+      "name": "Send Newsletter",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [900, 1000],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{$env.GMAIL_CREDENTIALS_ID}}",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Pilot Sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pilot Sites": {
+      "main": [
+        [
+          {
+            "node": "Score Sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Sites": {
+      "main": [
+        [
+          {
+            "node": "Filter High Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High Scores": {
+      "main": [
+        [
+          {
+            "node": "Send Outreach Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Advisory Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Assign Expert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Expert": {
+      "main": [
+        [
+          {
+            "node": "Notify Team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Schedule Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily KPI Trigger": {
+      "main": [
+        [
+          {
+            "node": "Collect KPI Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect KPI Data": {
+      "main": [
+        [
+          {
+            "node": "Monitor Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monitor Performance": {
+      "main": [
+        [
+          {
+            "node": "Store KPI Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store KPI Data": {
+      "main": [
+        [
+          {
+            "node": "Check Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Alerts": {
+      "main": [
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Research Trigger": {
+      "main": [
+        [
+          {
+            "node": "Anonymize Research Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anonymize Research Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Manuscript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Manuscript": {
+      "main": [
+        [
+          {
+            "node": "Share Research Results",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "timezone": "UTC",
+    "errorWorkflow": "",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "executionTimeout": 3600
+  }
+}
