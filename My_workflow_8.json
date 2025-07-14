@@ -1,0 +1,174 @@
+{
+  "name": "My workflow 8",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "name": "Weekly Research Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        0
+      ],
+      "id": "a0c52584-6822-409f-a282-2bec32ae5a3f"
+    },
+    {
+      "parameters": {
+        "functionCode": "try {\n  items[0].json.anonymizedData = items[0].json.data.map(record => {\n    delete record.sensitive_info;\n    delete record.patient_identifiers;\n    return record;\n  });\n  return items;\n} catch (error) {\n  return [{ json: { error: 'Data anonymization failed: ' + error.message } }];\n}"
+      },
+      "name": "Anonymize Research Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        0
+      ],
+      "id": "ba3c18b9-d008-4251-8bc0-3e5b53ffb229"
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://httpbin.org/post",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{\"model\":\"gpt-3.5-turbo\",\"messages\":[{\"role\":\"user\",\"content\":\"Generate a research manuscript\"}],\"max_tokens\":2000}",
+        "headerParametersJson": "{\n  \"Content-Type\": \"application/json\",\n  \"Authorization\": \"Bearer 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\"\n}"
+      },
+      "name": "Generate Manuscript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ],
+      "id": "d4d8776f-6650-4109-9963-89900e3c8ff2"
+    },
+    {
+      "parameters": {
+        "operation": "postMessage"
+      },
+      "name": "Share Research Results",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ],
+      "id": "18dda1e1-87c6-4eea-b035-dd0e959dc307",
+      "credentials": {
+        "slackApi": {
+          "id": "jMpwVhS0hKQjBKtD",
+          "name": "Slack account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "subject": "party",
+        "message": "birthday party celebration",
+        "toList": [
+          "22ec3001@rgipt.ac.in"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Send Newsletter",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        800,
+        0
+      ],
+      "id": "4e943537-1b39-4a3d-819f-e01cabaa342d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aNUPqBObWG0oHFNP",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        0
+      ],
+      "id": "fad10e6b-750a-4fb6-8df8-dd477b2ae419",
+      "name": "Wait",
+      "webhookId": "e73be859-b5a6-4192-96c5-3dd2476d852c"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Weekly Research Trigger": {
+      "main": [
+        [
+          {
+            "node": "Anonymize Research Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anonymize Research Data": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Manuscript": {
+      "main": [
+        [
+          {
+            "node": "Share Research Results",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Newsletter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Generate Manuscript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "65b279a4-0554-492f-b383-6b59ed4b9c0b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f489331cb670003ec9d689d06778a4a537b7818218817673fc887bb6aec46a1"
+  },
+  "id": "lAZwKA8SLMEH6jNw",
+  "tags": []
+}

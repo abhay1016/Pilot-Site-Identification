@@ -1,0 +1,157 @@
+{
+  "name": "My workflow 7",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "name": "Daily KPI Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        100
+      ],
+      "id": "d26074a8-6172-4b06-95da-d227867eb95e"
+    },
+    {
+      "parameters": {
+        "url": "https://api.airtable.com/v0/appsFVksQKPr7diGp/tblvLTeBFHtGrRHwe",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "Authorization",
+              "value": "Bearer pat4UlDpDVCpBPTAs.0fd83acbc3aa3416a8cbb2b5481b9d47f3fd043f0251e18fbdf524347fa58721"
+            }
+          ]
+        }
+      },
+      "name": "Collect KPI Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        100
+      ],
+      "id": "1eaca100-5ee3-4292-8e1c-03916f0bf76d"
+    },
+    {
+      "parameters": {
+        "functionCode": "try {\n  items[0].json.alert = false;\n  if (items[0].json.turnaroundTime > items[0].json.thresholdTime) {\n    items[0].json.alert = true;\n    items[0].json.message = 'Turnaround time exceeded threshold';\n  } else if (items[0].json.accuracyScore < items[0].json.minAccuracy) {\n    items[0].json.alert = true;\n    items[0].json.message = 'Accuracy below minimum threshold';\n  }\n  return items;\n} catch (error) {\n  return [{ json: { error: 'Performance monitoring failed: ' + error.message } }];\n}"
+      },
+      "name": "Monitor Performance",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        100
+      ],
+      "id": "d27d3995-9848-465b-9fcf-e3df5c9cbc5f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": true,
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Check Alerts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        100
+      ],
+      "id": "91a77030-4b70-406e-8449-cd6c6ecb31f6"
+    },
+    {
+      "parameters": {
+        "channel": "#new-channel",
+        "text": "=KPI Alert triggered at {{$now}} Alert Status: {{$json.alert}} Please check the dashboard for details.",
+        "otherOptions": {},
+        "attachments": []
+      },
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        80
+      ],
+      "id": "65d75934-adb6-44b3-9e79-052c4ddf5160",
+      "credentials": {
+        "slackApi": {
+          "id": "jMpwVhS0hKQjBKtD",
+          "name": "Slack account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily KPI Trigger": {
+      "main": [
+        [
+          {
+            "node": "Collect KPI Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect KPI Data": {
+      "main": [
+        [
+          {
+            "node": "Monitor Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monitor Performance": {
+      "main": [
+        [
+          {
+            "node": "Check Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Alerts": {
+      "main": [
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "29fdb094-d654-4053-8c49-8707f7e2b9ee",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f489331cb670003ec9d689d06778a4a537b7818218817673fc887bb6aec46a1"
+  },
+  "id": "79GtjAD45ehLDfCV",
+  "tags": []
+}

@@ -1,0 +1,124 @@
+{
+  "name": "My workflow 6",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "my_path",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "name": "Advisory Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        0
+      ],
+      "id": "fad67e71-3eb8-49f2-a543-645f7c83f6d7",
+      "webhookId": "fa746e35-c70f-4326-8854-ad17864ae0eb"
+    },
+    {
+      "parameters": {
+        "functionCode": "try {\n  const expertMapping = {\n    'business_modeling': 'business_analyst_team',\n    'test_design': 'clinical_team',\n    'implementation': 'tech_implementation_team',\n    'regulatory': 'compliance_team'\n  };\n  \n  items[0].json.assignedExpert = expertMapping[items[0].json.requestType] || 'general_team';\n  return items;\n} catch (error) {\n  return [{ json: { error: 'Failed to assign expert: ' + error.message } }];\n}"
+      },
+      "name": "Assign Expert",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        140,
+        0
+      ],
+      "id": "1607344c-3c8f-4595-8936-d9a2a4a3fe3b"
+    },
+    {
+      "parameters": {
+        "channel": "new-channel",
+        "text": "=Test message from PAP workflow",
+        "otherOptions": {},
+        "attachments": []
+      },
+      "name": "Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [
+        380,
+        0
+      ],
+      "id": "a592d80f-5de9-4ebb-85f3-f5bae6f31697",
+      "credentials": {
+        "slackApi": {
+          "id": "jMpwVhS0hKQjBKtD",
+          "name": "Slack account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "=22ec3001@rgipt.ac.in",
+          "mode": ""
+        },
+        "start": "2025-07-23T00:00:00",
+        "end": "2025-07-25T00:00:00",
+        "additionalFields": {}
+      },
+      "name": "Schedule Session",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        580,
+        -240
+      ],
+      "id": "7a55392a-aba8-43ac-8b89-37aa9221ebd5",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "CJgJcOJVcYWAQC7v",
+          "name": "Google Calendar account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Advisory Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Assign Expert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Expert": {
+      "main": [
+        [
+          {
+            "node": "Notify Team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Schedule Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "44313b3e-1640-425b-9d10-ab43601fa3a9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f489331cb670003ec9d689d06778a4a537b7818218817673fc887bb6aec46a1"
+  },
+  "id": "427TxYj1mUbGumsU",
+  "tags": []
+}

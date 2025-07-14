@@ -1,0 +1,170 @@
+{
+  "name": "My workflow 5",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c1b0c4ca-e2d1-4ec9-b1cf-80033ff5f66a"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableTokenApi",
+        "operation": "list",
+        "application": {
+          "__rl": true,
+          "value": "appsFVksQKPr7diGp",
+          "mode": "id"
+        },
+        "table": "Pilot Sites",
+        "additionalOptions": {
+          "fields": [
+            "Organization Name",
+            "Organization Type",
+            "Contact Information",
+            "Geographic Location",
+            "Current Technology Stack",
+            "Pilot Readiness Score",
+            "Status"
+          ]
+        }
+      },
+      "name": "Get Pilot Sites",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ],
+      "id": "683d3e78-7647-47b9-b012-15d05d718567",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "gOKhtWM3oILj023a",
+          "name": "Airtable Personal Access Token account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "return items.map(item => {\n  const scoringCriteria = {\n    organizationType: item.json['Organization Type'] === 'University Health System' ? 10 : 8,\n    techReadiness: item.json['Pilot Readiness Score'] || 5,\n    geographicDiversity: item.json['Geographic Location'] ? 5 : 3,\n    clinicalVolume: item.json['Current Technology Stack'] ? 5 : 3\n  };\n  item.json.totalScore = Object.values(scoringCriteria).reduce((a, b) => a + b, 0);\n  return item;\n});"
+      },
+      "name": "Score Sites",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ],
+      "id": "8df0e2d9-172d-4707-9da9-f1c26178d446"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node[\"Score Sites\"].json[\"totalScore\"]}}",
+              "operation": "larger",
+              "value2": 18
+            }
+          ]
+        }
+      },
+      "name": "Filter High Scores",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ],
+      "id": "d8fb570e-7019-4e00-a4b9-25b123e34840"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "subject": "PAP Pilot Program Invitation",
+        "message": "=Dear ABHAY KRISHNA\n",
+        "toList": [
+          "22ec3001@rgipt.ac.in"
+        ],
+        "additionalFields": {}
+      },
+      "name": "Send Outreach Email1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        800,
+        0
+      ],
+      "id": "3d476d4a-044f-4264-b897-c65db3d13602",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "aNUPqBObWG0oHFNP",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Pilot Sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pilot Sites": {
+      "main": [
+        [
+          {
+            "node": "Score Sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Sites": {
+      "main": [
+        [
+          {
+            "node": "Filter High Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High Scores": {
+      "main": [
+        [
+          {
+            "node": "Send Outreach Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bab351a5-ebf5-4f14-9341-5b7d916c6812",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4f489331cb670003ec9d689d06778a4a537b7818218817673fc887bb6aec46a1"
+  },
+  "id": "6dlKd9lKMmzPPHlr",
+  "tags": []
+}
